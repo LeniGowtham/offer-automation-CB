@@ -1,0 +1,12 @@
+{
+  "name": "offer-automation",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "node createOffer.js && node updateAttributes.js",
+    "create": "node createOffer.js"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
+}
