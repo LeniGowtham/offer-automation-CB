@@ -25,6 +25,8 @@ const IMAGE_NAME_MAP = {
   'large image':   'OFFER_IMAGE_LARGE',
 };
 
+const RICH_CONTENT_ATTRS = new Set(['keyTerms']);
+
 // ─── API HELPERS ─────────────────────────────────────────────────────────────
 const baseHeaders = {
   Authorization:  CONFIG.authorization,
@@ -67,7 +69,12 @@ function readAttributes() {
     .slice(1)
     .filter(r => r[0] != null && r[1] != null)
     .reduce((acc, [attr, val]) => {
-      acc[attr.toString().toLowerCase().trim()] = val.toString();
+      const strVal = val.toString().trim();
+      // Image keys are lowercased for IMAGE_NAME_MAP matching; all others keep original case
+      const key        = attr.toString().trim();
+      const lowerKey   = key.toLowerCase();
+      const storeKey   = lowerKey in IMAGE_NAME_MAP ? lowerKey : key;
+      acc[storeKey] = strVal.toLowerCase() === 'null' ? '' : strVal;
       return acc;
     }, {});
 }
@@ -87,15 +94,15 @@ function readContent() {
 
 // ─── REPLACEMENT HELPERS ──────────────────────────────────────────────────────
 // replacePercent: true for name/shortTitle/description, false for termsAndConditions
-function applyReplacements(text, vendorName, cashbackValue, replacePercent = true) {
+function applyReplacements(text, vendorName, grossCashbackValue, replacePercent = true) {
   if (!text) return text;
-  let out = text.replace(/Banana Republic/g, vendorName);
-  if (replacePercent) out = out.replace(/\d+(\.\d+)?%/g, `${cashbackValue}%`);
+  let out = text.replace(/"Vendorname"/gi, vendorName);
+  if (replacePercent) out = out.replace(/"cashbackValue"/gi, `${grossCashbackValue}%`);
   return out;
 }
 
 // ─── PER-LOCALE UPDATE ────────────────────────────────────────────────────────
-function applyUpdates(locale, attrs, content, vendorName, cashbackValue) {
+function applyUpdates(locale, attrs, content, vendorName, grossCashbackValue, richContentKeys = new Set()) {
   const code        = locale.languageCode;
   const isTarget    = TARGET_LOCALES.includes(code);
   const useEnglish  = ENGLISH_CONTENT.includes(code);
@@ -128,18 +135,33 @@ function applyUpdates(locale, attrs, content, vendorName, cashbackValue) {
   let customFields = { ...base.customFields };
   let richContent  = { ...base.richContentRO };
 
+  // Apply non-image attrs — route to richContentRO if key appears in any locale's richContentRO, else customFields
+  if (isTarget) {
+    for (const [key, val] of Object.entries(attrs)) {
+      if (key.toLowerCase() in IMAGE_NAME_MAP) continue;
+      if (RICH_CONTENT_ATTRS.has(key) || richContentKeys.has(key)) {
+        richContent[key] = { ...(richContent[key] ?? { isEnabled: true }), content: val };
+      } else {
+        customFields[key] = val;
+      }
+    }
+    // Always write vendorName (from GET) and grossCashbackValue to all target locales
+    if (vendorName)         customFields.vendorName         = vendorName;
+    if (grossCashbackValue) customFields.grossCashbackValue = grossCashbackValue;
+  }
+
   if (useContent) {
-    name = applyReplacements(content['name']?.[lang]           ?? base.name,                              vendorName, cashbackValue);
-    customFields.shortTitle = applyReplacements(content['shorttitle']?.[lang] ?? customFields.shortTitle, vendorName, cashbackValue);
+    name = applyReplacements(content['name']?.[lang]           ?? base.name,                              vendorName, grossCashbackValue);
+    customFields.shortTitle = applyReplacements(content['shorttitle']?.[lang] ?? customFields.shortTitle, vendorName, grossCashbackValue);
 
     richContent = {
       ...richContent,
       description: {
-        content:   applyReplacements(content['description']?.[lang]       ?? richContent?.description?.content,       vendorName, cashbackValue, true),
+        content:   applyReplacements(content['description']?.[lang]       ?? richContent?.description?.content,       vendorName, grossCashbackValue, true),
         isEnabled: richContent?.description?.isEnabled ?? true,
       },
       termsAndConditions: {
-        content:   applyReplacements(content['termsandconditions']?.[lang] ?? richContent?.termsAndConditions?.content, vendorName, cashbackValue, false),
+        content:   applyReplacements(content['termsandconditions']?.[lang] ?? richContent?.termsAndConditions?.content, vendorName, grossCashbackValue, false),
         isEnabled: richContent?.termsAndConditions?.isEnabled ?? true,
       },
     };
@@ -165,20 +187,25 @@ async function main() {
   console.log('[GET] Fetching current reward...');
   const { reward } = await apiGet(`/api_gateway/rewards/core/v1/reward/${offerId}/brand/${CONFIG.brandId}`);
 
-  // vendorName and cashbackValue live in locale-level customFields, not top-level.
+  // vendorName and grossCashbackValue live in locale-level customFields, not top-level.
   // Find the first locale that has them (en-qc / en-roc are most reliable sources).
   const localeWithData = ['en-qc', 'en-roc', 'fr-qc', 'fr-roc', 'en']
     .map(code => reward.languageSpecificInfo?.find(l => l.languageCode === code))
     .find(l => l?.customFields?.vendorName);
 
-  const vendorName    = localeWithData?.customFields?.vendorName    ?? reward.customFields?.vendorName    ?? 'Banana Republic';
-  const cashbackValue = localeWithData?.customFields?.cashbackValue ?? reward.customFields?.cashbackValue ?? '2';
-  console.log(`[GET] ✓  vendorName="${vendorName}"  cashbackValue="${cashbackValue}"`);
+  const vendorName         = localeWithData?.customFields?.vendorName         ?? reward.customFields?.vendorName         ?? '';
+  const grossCashbackValue = attrs.grossCashbackValue ?? localeWithData?.customFields?.grossCashbackValue ?? reward.customFields?.grossCashbackValue ?? '2';
+  console.log(`[GET] ✓  vendorName="${vendorName}"  grossCashbackValue="${grossCashbackValue}"`);
   console.log(`[GET]    Locales present: ${reward.languageSpecificInfo?.map(l => l.languageCode).join(', ')}\n`);
+
+  // Collect all richContentRO field names across all locales for correct routing
+  const richContentKeys = new Set(
+    (reward.languageSpecificInfo ?? []).flatMap(l => Object.keys(l.richContentRO ?? {}))
+  );
 
   // Apply updates to each locale
   const languageSpecificInfo = (reward.languageSpecificInfo ?? []).map(locale =>
-    applyUpdates(locale, attrs, content, vendorName, cashbackValue)
+    applyUpdates(locale, attrs, content, vendorName, grossCashbackValue, richContentKeys)
   );
 
   const changed = languageSpecificInfo.map(l => l.languageCode).filter(c =>
