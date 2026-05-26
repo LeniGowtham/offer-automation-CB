@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Offer Automation — Workflow Diagram</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f0f2f5;
+    color: #2c3e50;
+    padding: 40px 24px;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  header h1 {
+    font-size: 26px;
+    color: #1a252f;
+    letter-spacing: -0.5px;
+  }
+  header p {
+    margin-top: 6px;
+    color: #7f8c8d;
+    font-size: 13px;
+  }
+  .card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+    padding: 32px;
+    max-width: 1000px;
+    margin: 0 auto 32px;
+  }
+  .card h2 {
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #95a5a6;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ecf0f1;
+  }
+  .mermaid { display: flex; justify-content: center; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #2c3e50; color: white; padding: 9px 12px; text-align: left; }
+  td { padding: 8px 12px; border-bottom: 1px solid #ecf0f1; }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: #f9f9f9; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+  }
+  .p1  { background: #8E44AD; }
+  .p2  { background: #16A085; }
+  .pre { background: #2980B9; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; margin-top: 16px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 3px; }
+
+  @media print {
+    body { background: white; padding: 0; }
+    .card { box-shadow: none; border: 1px solid #eee; break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Offer Automation — Workflow Diagram</h1>
+  <p>Capillary Stage &nbsp;·&nbsp; Brand 27 &nbsp;·&nbsp; north-america.api.capillarytech.com</p>
+</header>
+
+<!-- DIAGRAM -->
+<div class="card">
+  <h2>End-to-End Flow</h2>
+  <div class="mermaid">
+flowchart TD
+    START([START]):::green
+    ReadExcel["Read Excel File\nOffer IDs · Attributes · Content"]:::blue
+    Preflight["PREFLIGHT\nCheck org language metadata"]:::blue
+    Missing{"Missing\nlocales?"}:::orange
+    Create["POST: Create missing locales\nvia /metadata/language/create"]:::blue
+    Loop[/"For each Offer ID"/]:::gray
+
+    subgraph Phase1 ["PHASE 1 — Locale Management"]
+      direction TB
+      P1Get["GET reward from API"]:::purple
+      P1Has{"All 5 locales\npresent?"}:::orange
+      P1Skip["Skip locale PUT"]:::light
+      P1Clone["Clone missing locales\nen-roc → en-qc → en"]:::purple
+      P1Put["PUT all 5 locales"]:::purple
+      P1Verify["VERIFY: GET and confirm all 5"]:::purple
+      P1Ok{"Phase 1\nOK?"}:::orange
+      P1Fail["Mark FAILED\nSkip Phase 2"]:::red
+    end
+
+    subgraph Phase2 ["PHASE 2 — Attributes and Content"]
+      direction TB
+      P2Get["GET fresh reward state"]:::teal
+      P2Extract["Extract vendorName and cashbackValue\nfrom locale customFields"]:::teal
+      P2Images["Update images — all 5 locales\nMERCHANT · SMALL · MEDIUM · LARGE"]:::teal
+      P2Content["Apply text replacements\nen-qc / en-roc use English column\nfr-qc / fr-roc use French column"]:::teal
+      P2Put["PUT all locales in payload"]:::teal
+    end
+
+    More{"More\noffers?"}:::orange
+    Summary["Print Summary\nP1 and P2 status per offer"]:::blue
+    END([END]):::green
+
+    START --> ReadExcel --> Preflight
+    Preflight --> Missing
+    Missing -- Yes --> Create --> Loop
+    Missing -- No --> Loop
+    Loop --> P1Get --> P1Has
+    P1Has -- All present --> P1Skip --> P1Ok
+    P1Has -- Missing --> P1Clone --> P1Put --> P1Verify --> P1Ok
+    P1Ok -- Failed --> P1Fail --> More
+    P1Ok -- OK --> P2Get --> P2Extract --> P2Images --> P2Content --> P2Put --> More
+    More -- Yes --> Loop
+    More -- No --> Summary --> END
+
+    classDef green   fill:#27AE60,color:#fff,stroke:#1E8449,font-weight:bold
+    classDef blue    fill:#2980B9,color:#fff,stroke:#1A5276
+    classDef purple  fill:#8E44AD,color:#fff,stroke:#6C3483
+    classDef teal    fill:#16A085,color:#fff,stroke:#117A65
+    classDef orange  fill:#E67E22,color:#fff,stroke:#CA6F1E
+    classDef red     fill:#C0392B,color:#fff,stroke:#922B21
+    classDef gray    fill:#7F8C8D,color:#fff,stroke:#626567
+    classDef light   fill:#ECF0F1,color:#2C3E50,stroke:#BDC3C7
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#27AE60"></div> Start / End</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2980B9"></div> General process</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#8E44AD"></div> Phase 1 — Locale management</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#16A085"></div> Phase 2 — Attributes &amp; content</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#E67E22"></div> Decision</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#C0392B"></div> Error / skip path</div>
+  </div>
+</div>
+
+<!-- EXCEL SETUP -->
+<div class="card">
+  <h2>Excel Input: Offer details.xlsx</h2>
+  <table>
+    <thead>
+      <tr><th>Sheet</th><th>Column A</th><th>Column B</th><th>Column C</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Offer ID</strong></td>
+        <td>Offer IDs (row 2+)</td>
+        <td>—</td><td>—</td>
+        <td><code>createOffer.js</code> reads all; <code>updateAttributes.js</code> reads first only</td>
+      </tr>
+      <tr>
+        <td><strong>Attributes to be updated</strong></td>
+        <td>Attribute name</td>
+        <td>URL or asset ID</td><td>—</td>
+        <td><code>merchantimage</code>, <code>small image</code>, <code>medium image</code>, <code>large image</code></td>
+      </tr>
+      <tr>
+        <td><strong>Content</strong></td>
+        <td>Field name</td>
+        <td>English value</td>
+        <td>French value</td>
+        <td><code>name</code>, <code>shorttitle</code>, <code>description</code>, <code>termsandconditions</code></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- PHASE DETAILS -->
+<div class="card">
+  <h2>Phase Details</h2>
+  <table>
+    <thead>
+      <tr><th>Step</th><th>Phase</th><th>API Call</th><th>What happens</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Preflight</td>
+        <td><span class="badge pre">Pre</span></td>
+        <td>GET /metadata/languages<br>POST /metadata/language/create</td>
+        <td>Ensures all 5 locales are registered at org level. Runs once before the loop.</td>
+      </tr>
+      <tr>
+        <td>GET reward</td>
+        <td><span class="badge p1">P1</span></td>
+        <td>GET /reward/{id}/brand/27</td>
+        <td>Fetches current locale list; identifies which of 5 are missing.</td>
+      </tr>
+      <tr>
+        <td>Clone &amp; PUT</td>
+        <td><span class="badge p1">P1</span></td>
+        <td>PUT /reward/{id}/brand/27</td>
+        <td>Missing locales are cloned from first available: en-roc → en-qc → en. PUT sends all 5 locales.</td>
+      </tr>
+      <tr>
+        <td>VERIFY</td>
+        <td><span class="badge p1">P1</span></td>
+        <td>GET /reward/{id}/brand/27</td>
+        <td>Re-fetches; confirms all 5 locales are now present. Phase 2 is skipped if this fails.</td>
+      </tr>
+      <tr>
+        <td>GET fresh state</td>
+        <td><span class="badge p2">P2</span></td>
+        <td>GET /reward/{id}/brand/27</td>
+        <td>New GET after Phase 1 ensures content is applied on top of the verified locale set.</td>
+      </tr>
+      <tr>
+        <td>Image update</td>
+        <td><span class="badge p2">P2</span></td>
+        <td>—</td>
+        <td>Applied to all 5 locales. HTTP URL → isExternal:true; other value → internal asset ID.</td>
+      </tr>
+      <tr>
+        <td>Text replacement</td>
+        <td><span class="badge p2">P2</span></td>
+        <td>—</td>
+        <td>"Banana Republic" → vendorName; X% → cashbackValue%. T&amp;C skips % replacement.</td>
+      </tr>
+      <tr>
+        <td>PUT payload</td>
+        <td><span class="badge p2">P2</span></td>
+        <td>PUT /reward/{id}/brand/27</td>
+        <td>All locales sent in one payload — en locale gets image updates only (no text replacement).</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- LOCALE ROUTING -->
+<div class="card">
+  <h2>Locale Routing Reference</h2>
+  <table>
+    <thead>
+      <tr><th>Locale</th><th>Image update</th><th>Text source</th><th>vendorName / % replaced</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>en</code></td><td>Yes</td><td>— (no text replacement)</td><td>No</td></tr>
+      <tr><td><code>en-qc</code></td><td>Yes</td><td>English column (Col B)</td><td>Yes</td></tr>
+      <tr><td><code>en-roc</code></td><td>Yes</td><td>English column (Col B)</td><td>Yes</td></tr>
+      <tr><td><code>fr-qc</code></td><td>Yes</td><td>French column (Col C)</td><td>Yes</td></tr>
+      <tr><td><code>fr-roc</code></td><td>Yes</td><td>French column (Col C)</td><td>Yes</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'default', flowchart: { curve: 'basis', padding: 20 } });
+</script>
+</body>
+</html>

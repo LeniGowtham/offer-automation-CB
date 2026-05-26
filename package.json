@@ -3,10 +3,14 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "test": "node createOffer.js && node updateAttributes.js",
-    "create": "node createOffer.js"
+    "start": "node automate.js",
+    "locales": "node createOffer.js",
+    "attributes": "node updateAttributes.js",
+    "docs": "node generatePDF.js",
+    "all": "npm start && npm run attributes"
   },
   "dependencies": {
+    "pdfkit": "^0.18.0",
     "xlsx": "^0.18.5"
   }
 }

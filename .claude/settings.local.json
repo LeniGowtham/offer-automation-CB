@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude_ai_capillary-documentation__search-endpoints",
+      "mcp__claude_ai_capillary-documentation__list-specs",
+      "mcp__claude_ai_capillary-documentation__list-endpoints",
+      "mcp__claude_ai_capillary-documentation__get-endpoint",
+      "mcp__claude_ai_capillary-documentation__get-server-variables",
+      "Bash(node *)",
+      "PowerShell(node --check \"C:\\\\Users\\\\gowtham.km\\\\Documents\\\\Offer Automation\\\\createOffer.js\" 2>&1; if \\($?\\) { \"Syntax OK\" })",
+      "mcp__claude_ai_capillary-documentation__execute-request",
+      "Bash(npm test *)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git config *)",
+      "Bash(gh auth *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\gowtham.km\\\\Documents\\\\Offer Automation\" | Where-Object { $_.Name -ne \"node_modules\" } | Select-Object Name, LastWriteTime)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npm start *)",
+      "Skill(keybindings-help)",
+      "Bash(dir \"C:\\\\Users\\\\gowtham.km\\\\Documents\\\\Offer Automation\" /B)"
+    ]
+  }
+}
